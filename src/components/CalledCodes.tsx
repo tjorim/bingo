@@ -15,7 +15,7 @@ export default function CalledCodes({ numbers }: Props) {
       </p>
       <div className="d-flex flex-wrap gap-2 justify-content-center">
         {numbers.map((n, i) => (
-          <span key={i} className="badge bg-secondary font-monospace">
+          <span key={numbers.length - 1 - i} className="badge bg-secondary font-monospace">
             {fmt(n)}
           </span>
         ))}

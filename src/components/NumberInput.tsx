@@ -13,7 +13,10 @@ export default function NumberInput({ onSubmit, disabled }: Props) {
 
   const trySubmit = (raw: string) => {
     const n = parseInt(raw, 10);
-    if (isNaN(n) || n < 1 || n > 99) return;
+    if (isNaN(n) || n < 1 || n > 99) {
+      setValue('');
+      return;
+    }
     onSubmit(n);
     setFlash(true);
     setTimeout(() => {

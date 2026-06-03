@@ -1,0 +1,185 @@
+/* ── Okta brand token ─────────────────────────────────── */
+:root {
+  --okta: #00297a;
+  --okta-light: #0056b3;
+  --okta-mark: #0061a3;
+  --okta-win: #ffc107;
+  --okta-free: #198754;
+
+  --cell-bg: #ffffff;
+  --cell-border: #dee2e6;
+  --cell-text: #212529;
+  --cell-font: 1.05rem;
+}
+
+[data-bs-theme='dark'] {
+  --cell-bg: #2b3035;
+  --cell-border: #495057;
+  --cell-text: #f8f9fa;
+}
+
+/* ── Layout ───────────────────────────────────────────── */
+.app-title {
+  letter-spacing: -0.5px;
+}
+
+.okta-brand {
+  color: var(--okta);
+}
+
+[data-bs-theme='dark'] .okta-brand {
+  color: #5b9bd5;
+}
+
+/* ── Progress bar colour ──────────────────────────────── */
+.bg-okta {
+  background-color: var(--okta-light) !important;
+}
+
+/* ── Bingo card grid ──────────────────────────────────── */
+.bingo-card-wrapper {
+  user-select: none;
+}
+
+.bingo-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+}
+
+/* Column headers: O K T A ! */
+.bingo-col-header {
+  background-color: var(--okta);
+  color: #fff;
+  font-size: clamp(1.4rem, 5vw, 1.9rem);
+  font-weight: 900;
+  text-align: center;
+  padding: 0.35em 0;
+  border-radius: 8px;
+  letter-spacing: -1px;
+}
+
+[data-bs-theme='dark'] .bingo-col-header {
+  background-color: #1a3a6e;
+}
+
+/* Cells */
+.bingo-cell {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--cell-font);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  border-radius: 8px;
+  border: 2px solid var(--cell-border);
+  background-color: var(--cell-bg);
+  color: var(--cell-text);
+  transition: background-color 0.25s ease, color 0.2s ease, border-color 0.25s ease;
+  cursor: default;
+}
+
+/* FREE space */
+.bingo-cell--free {
+  background-color: var(--okta-free) !important;
+  color: #fff !important;
+  border-color: var(--okta-free) !important;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.bingo-free-text {
+  font-weight: 800;
+}
+
+/* Marked (hit, not part of winning line) */
+.bingo-cell--marked {
+  background-color: var(--okta-mark) !important;
+  color: #fff !important;
+  border-color: var(--okta-mark) !important;
+}
+
+/* Winning line */
+.bingo-cell--winning {
+  background-color: var(--okta-win) !important;
+  color: #000 !important;
+  border-color: var(--okta-win) !important;
+  animation: pulse 0.65s ease-in-out infinite alternate;
+}
+
+/* Pop animation for newly marked cells */
+.bingo-cell--just-marked {
+  animation: pop 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+@keyframes pulse {
+  from {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.5);
+  }
+  to {
+    transform: scale(1.07);
+    box-shadow: 0 0 10px 4px rgba(255, 193, 7, 0.2);
+  }
+}
+
+/* ── TOTP input ───────────────────────────────────────── */
+.totp-digit {
+  width: clamp(42px, 12vw, 56px) !important;
+  height: clamp(52px, 14vw, 68px) !important;
+  font-size: clamp(1.4rem, 5vw, 1.9rem) !important;
+  border-radius: 10px !important;
+  padding: 0 !important;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 0.3s ease;
+}
+
+.totp-sep {
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+/* Green flash on submit */
+.totp-flash .totp-digit {
+  background-color: #d1e7dd !important;
+  border-color: var(--okta-free) !important;
+}
+
+[data-bs-theme='dark'] .totp-flash .totp-digit {
+  background-color: #0d3321 !important;
+}
+
+/* ── Win banner ───────────────────────────────────────── */
+.win-banner {
+  animation: slide-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.win-emoji {
+  font-size: 2.4rem;
+  line-height: 1;
+  animation: spin-in 0.6s ease both;
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(-18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin-in {
+  from { transform: rotate(-30deg) scale(0.5); }
+  to   { transform: rotate(0deg) scale(1); }
+}
+
+/* ── Called codes badges ──────────────────────────────── */
+.called-codes .badge {
+  font-size: 0.78rem;
+}

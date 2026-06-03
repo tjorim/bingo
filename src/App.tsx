@@ -2,9 +2,18 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { generateCard, parseTotpPairs, checkWin } from './utils/bingo';
 import type { WinLine } from './utils/bingo';
+import {
+  loadConfig,
+  loadState,
+  saveConfig,
+  saveState,
+  isStateValid,
+  type Config,
+} from './utils/persistence';
 import BingoCard from './components/BingoCard';
 import TotpInput from './components/TotpInput';
 import CalledCodes from './components/CalledCodes';
+import Settings from './components/Settings';
 
 function fireConfetti() {
   void confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
@@ -14,31 +23,83 @@ function fireConfetti() {
   }, 350);
 }
 
+// Load everything once, atomically, before any state is initialized
+function loadInitial() {
+  const config = loadConfig();
+  const saved = loadState();
+  const valid = saved !== null && isStateValid(saved.createdAt, config.period);
+  const card = valid ? saved!.card : generateCard();
+  const marked = new Set<number>(valid ? saved!.marked : []);
+  const codes = valid ? saved!.codes : [];
+  const createdAt = valid ? saved!.createdAt : new Date().toISOString();
+  const win = checkWin(card, marked);
+  return { config, card, marked, codes, createdAt, win };
+}
+
 export default function App() {
-  const [card, setCard] = useState(() => generateCard());
-  const [marked, setMarked] = useState<Set<number>>(() => new Set());
+  const [init] = useState(loadInitial);
+
+  const [config, setConfig] = useState<Config>(init.config);
+  const [card, setCard] = useState<(number | null)[][]>(init.card);
+  const [marked, setMarked] = useState<Set<number>>(init.marked);
   const [justMarked, setJustMarked] = useState<Set<number>>(() => new Set());
   const justMarkedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [codes, setCodes] = useState<string[]>([]);
-  const [win, setWin] = useState<WinLine | null>(null);
+  const [codes, setCodes] = useState<string[]>(init.codes);
+  const [cardCreatedAt, setCardCreatedAt] = useState<string>(init.createdAt);
+  const [win, setWin] = useState<WinLine | null>(init.win);
+  const [showSettings, setShowSettings] = useState(false);
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     try {
       const stored = localStorage.getItem('bingo-theme');
       if (stored) return stored === 'dark';
     } catch {
-      // localStorage unavailable (sandboxed iframe, strict private browsing, etc.)
+      // localStorage unavailable
     }
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
   });
 
+  // Persist theme preference
   useEffect(() => {
     document.documentElement.setAttribute('data-bs-theme', darkMode ? 'dark' : 'light');
     try {
       localStorage.setItem('bingo-theme', darkMode ? 'dark' : 'light');
     } catch {
-      // ignore write errors
+      // ignore
     }
   }, [darkMode]);
+
+  // Persist game state on every change
+  useEffect(() => {
+    saveState({
+      card,
+      marked: Array.from(marked),
+      codes,
+      createdAt: cardCreatedAt,
+    });
+  }, [card, marked, codes, cardCreatedAt]);
+
+  const resetCard = useCallback(() => {
+    const newCard = generateCard();
+    const newCreatedAt = new Date().toISOString();
+    setCard(newCard);
+    setMarked(new Set());
+    setJustMarked(new Set());
+    setCodes([]);
+    setCardCreatedAt(newCreatedAt);
+    setWin(null);
+  }, []);
+
+  const handleConfigChange = useCallback(
+    (newConfig: Config) => {
+      setConfig(newConfig);
+      saveConfig(newConfig);
+      // Reset if the current card is no longer valid under the new period
+      if (!isStateValid(cardCreatedAt, newConfig.period)) {
+        resetCard();
+      }
+    },
+    [cardCreatedAt, resetCard],
+  );
 
   const handleSubmit = useCallback(
     (code: string) => {
@@ -49,6 +110,7 @@ export default function App() {
       const nextMarked = new Set(marked);
       pairs.forEach(p => nextMarked.add(p));
       setMarked(nextMarked);
+
       setJustMarked(new Set(pairs));
       if (justMarkedTimer.current) clearTimeout(justMarkedTimer.current);
       justMarkedTimer.current = setTimeout(() => setJustMarked(new Set()), 700);
@@ -71,14 +133,6 @@ export default function App() {
     handleSubmit(code);
   }, [handleSubmit]);
 
-  const handleNewCard = () => {
-    setCard(generateCard());
-    setMarked(new Set());
-    setJustMarked(new Set());
-    setCodes([]);
-    setWin(null);
-  };
-
   const markedCount = card.flat().filter(val => val === null || marked.has(val)).length;
   const totalCells = 25;
 
@@ -96,15 +150,34 @@ export default function App() {
               Enter your TOTP codes — get five in a row!
             </p>
           </div>
-          <button
-            className="btn btn-sm btn-outline-secondary mt-1"
-            onClick={() => setDarkMode(d => !d)}
-            title="Toggle dark mode"
-            aria-label="Toggle dark mode"
-          >
-            <i className={`bi bi-${darkMode ? 'sun-fill' : 'moon-fill'}`} />
-          </button>
+          <div className="d-flex gap-1 mt-1">
+            <button
+              className={`btn btn-sm ${showSettings ? 'btn-secondary' : 'btn-outline-secondary'}`}
+              onClick={() => setShowSettings(s => !s)}
+              title="Settings"
+              aria-label="Settings"
+            >
+              <i className="bi bi-gear-fill" />
+            </button>
+            <button
+              className="btn btn-sm btn-outline-secondary"
+              onClick={() => setDarkMode(d => !d)}
+              title="Toggle dark mode"
+              aria-label="Toggle dark mode"
+            >
+              <i className={`bi bi-${darkMode ? 'sun-fill' : 'moon-fill'}`} />
+            </button>
+          </div>
         </div>
+
+        {/* Settings panel */}
+        {showSettings && (
+          <Settings
+            config={config}
+            cardCreatedAt={cardCreatedAt}
+            onChange={handleConfigChange}
+          />
+        )}
 
         {/* Win banner */}
         {win && (
@@ -116,7 +189,7 @@ export default function App() {
                 {codes.length} code{codes.length !== 1 ? 's' : ''} — not bad!
               </div>
             </div>
-            <button className="btn btn-warning btn-sm fw-bold" onClick={handleNewCard}>
+            <button className="btn btn-warning btn-sm fw-bold" onClick={resetCard}>
               Play again
             </button>
           </div>
@@ -153,7 +226,7 @@ export default function App() {
         <div className="d-flex gap-2 justify-content-center">
           <button
             className="btn btn-outline-primary"
-            onClick={handleNewCard}
+            onClick={resetCard}
             title="Generate a fresh card"
           >
             <i className="bi bi-arrow-clockwise me-1" />

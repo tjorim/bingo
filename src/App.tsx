@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { generateCard, parseTotpPairs, checkWin } from './utils/bingo';
 import type { WinLine } from './utils/bingo';
@@ -18,17 +18,26 @@ export default function App() {
   const [card, setCard] = useState(() => generateCard());
   const [marked, setMarked] = useState<Set<number>>(() => new Set());
   const [justMarked, setJustMarked] = useState<Set<number>>(() => new Set());
+  const justMarkedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [codes, setCodes] = useState<string[]>([]);
   const [win, setWin] = useState<WinLine | null>(null);
   const [darkMode, setDarkMode] = useState<boolean>(() => {
-    const stored = localStorage.getItem('bingo-theme');
-    if (stored) return stored === 'dark';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    try {
+      const stored = localStorage.getItem('bingo-theme');
+      if (stored) return stored === 'dark';
+    } catch {
+      // localStorage unavailable (sandboxed iframe, strict private browsing, etc.)
+    }
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
   });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-bs-theme', darkMode ? 'dark' : 'light');
-    localStorage.setItem('bingo-theme', darkMode ? 'dark' : 'light');
+    try {
+      localStorage.setItem('bingo-theme', darkMode ? 'dark' : 'light');
+    } catch {
+      // ignore write errors
+    }
   }, [darkMode]);
 
   const handleSubmit = useCallback(
@@ -41,7 +50,8 @@ export default function App() {
       pairs.forEach(p => nextMarked.add(p));
       setMarked(nextMarked);
       setJustMarked(new Set(pairs));
-      setTimeout(() => setJustMarked(new Set()), 700);
+      if (justMarkedTimer.current) clearTimeout(justMarkedTimer.current);
+      justMarkedTimer.current = setTimeout(() => setJustMarked(new Set()), 700);
 
       setCodes(prev => [code, ...prev]);
 
@@ -69,7 +79,7 @@ export default function App() {
     setWin(null);
   };
 
-  const markedCount = marked.size + 1; // +1 for FREE
+  const markedCount = card.flat().filter(val => val === null || marked.has(val)).length;
   const totalCells = 25;
 
   return (

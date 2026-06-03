@@ -66,7 +66,7 @@ export default function TotpInput({ onSubmit, disabled }: Props) {
             onKeyDown={e => handleKeyDown(i, e)}
             onPaste={handlePaste}
             onFocus={e => e.target.select()}
-            disabled={disabled}
+            disabled={disabled || flash}
             className="totp-digit form-control text-center fw-bold"
             aria-label={`Digit ${i + 1}`}
           />
@@ -84,7 +84,7 @@ export default function TotpInput({ onSubmit, disabled }: Props) {
             onKeyDown={e => handleKeyDown(i, e)}
             onPaste={handlePaste}
             onFocus={e => e.target.select()}
-            disabled={disabled}
+            disabled={disabled || flash}
             className="totp-digit form-control text-center fw-bold"
             aria-label={`Digit ${i + 1}`}
           />

@@ -183,3 +183,23 @@
 .called-codes .badge {
   font-size: 0.78rem;
 }
+
+/* ── Stats panel ──────────────────────────────────────── */
+.stat-emoji {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--bs-secondary-color);
+}

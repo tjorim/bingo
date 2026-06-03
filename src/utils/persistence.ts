@@ -66,6 +66,50 @@ export function isStateValid(createdAt: string, period: Period): boolean {
   return created.getFullYear() === now.getFullYear() && created.getMonth() === now.getMonth();
 }
 
+// ── Stats ─────────────────────────────────────────────────
+export interface Stats {
+  totalCodes: number;       // every code ever entered
+  totalBingos: number;
+  bestGame: number | null;  // fewest codes to reach BINGO
+  totalCodesInBingos: number; // for computing average
+}
+
+const STATS_KEY = 'bingo-stats';
+
+export function loadStats(): Stats {
+  return (
+    safeGet<Stats>(STATS_KEY) ?? {
+      totalCodes: 0,
+      totalBingos: 0,
+      bestGame: null,
+      totalCodesInBingos: 0,
+    }
+  );
+}
+
+export function saveStats(stats: Stats): void {
+  safeSet(STATS_KEY, stats);
+}
+
+// ── Theme ─────────────────────────────────────────────────
+export type ThemeMode = 'auto' | 'light' | 'dark';
+const THEME_KEY = 'bingo-theme';
+
+export function loadTheme(): ThemeMode {
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    if (stored === 'auto' || stored === 'light' || stored === 'dark') return stored;
+    // Migrate old boolean-style values stored by the previous implementation
+    if (stored === 'true') return 'dark';
+    if (stored === 'false') return 'light';
+  } catch { /* ignore */ }
+  return 'auto';
+}
+
+export function saveTheme(mode: ThemeMode): void {
+  try { localStorage.setItem(THEME_KEY, mode); } catch { /* ignore */ }
+}
+
 export function getCardExpiry(createdAt: string, period: Period): Date {
   const created = new Date(createdAt);
   if (period === 'weekly') {

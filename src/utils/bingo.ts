@@ -2,7 +2,7 @@ export const COLUMNS = ['O', 'K', 'T', 'A', '!'] as const;
 export type Column = (typeof COLUMNS)[number];
 
 // Okta Number Challenge shows 1–99. Split evenly across 5 columns.
-const COLUMN_RANGES: Record<Column, [number, number]> = {
+export const COLUMN_RANGES: Record<Column, [number, number]> = {
   O: [1,  20],
   K: [21, 40],
   T: [41, 60],
@@ -100,6 +100,28 @@ export function checkNearWin(
 }
 
 // ── Card sharing ──────────────────────────────────────────
+export function isValidCard(card: unknown): card is (number | null)[][] {
+  if (!Array.isArray(card) || card.length !== 5) return false;
+  const seen = new Set<number>();
+  for (let r = 0; r < 5; r++) {
+    const row = card[r];
+    if (!Array.isArray(row) || row.length !== 5) return false;
+    for (let c = 0; c < 5; c++) {
+      const val = row[c];
+      if (r === 2 && c === 2) {
+        if (val !== null) return false;
+      } else {
+        if (typeof val !== 'number' || isNaN(val)) return false;
+        const [min, max] = COLUMN_RANGES[COLUMNS[c]];
+        if (val < min || val > max) return false;
+        if (seen.has(val)) return false;
+        seen.add(val);
+      }
+    }
+  }
+  return true;
+}
+
 export function encodeCard(card: (number | null)[][]): string {
   return btoa(card.flat().map(v => v ?? 0).join(','));
 }
@@ -108,9 +130,10 @@ export function decodeCard(encoded: string): (number | null)[][] | null {
   try {
     const flat = atob(encoded).split(',').map(Number);
     if (flat.length !== 25 || flat.some(isNaN)) return null;
-    return Array.from({ length: 5 }, (_, r) =>
+    const card = Array.from({ length: 5 }, (_, r) =>
       flat.slice(r * 5, r * 5 + 5).map(v => (v === 0 ? null : v)),
     );
+    return isValidCard(card) ? card : null;
   } catch {
     return null;
   }

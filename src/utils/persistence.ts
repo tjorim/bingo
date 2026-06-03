@@ -42,7 +42,15 @@ export function saveConfig(config: Config): void {
 export function loadState(): SavedState | null {
   const s = safeGet<SavedState>(STATE_KEY);
   // Reject old format (had 'codes: string[]') or malformed data
-  if (!s || !Array.isArray(s.card) || !Array.isArray(s.marked) || !Array.isArray(s.numbers) || !s.createdAt)
+  if (
+    !s ||
+    !Array.isArray(s.card) ||
+    s.card.length !== 5 ||
+    s.card.some((row: unknown) => !Array.isArray(row) || (row as unknown[]).length !== 5) ||
+    !Array.isArray(s.marked) ||
+    !Array.isArray(s.numbers) ||
+    !s.createdAt
+  )
     return null;
   return s;
 }

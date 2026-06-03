@@ -82,7 +82,7 @@ export default function App() {
   const [numbers, setNumbers] = useState<number[]>(init.numbers);
   const [cardCreatedAt, setCardCreatedAt] = useState<string>(init.createdAt);
   const [win, setWin] = useState<WinLine | null>(init.win);
-  const [quip, setQuip] = useState('');
+  const [quip, setQuip] = useState(() => (init.win ? randomQuip() : ''));
   const [stats, setStats] = useState<Stats>(() => loadStats());
   const [showSettings, setShowSettings] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => loadTheme());
@@ -193,6 +193,7 @@ export default function App() {
     const url = new URL(window.location.href);
     url.searchParams.set('card', encoded);
     try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard API not available');
       await navigator.clipboard.writeText(url.toString());
       showToast('📋 Link copied — share it with a colleague!');
     } catch {

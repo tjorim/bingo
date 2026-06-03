@@ -1,13 +1,13 @@
 export const COLUMNS = ['O', 'K', 'T', 'A', '!'] as const;
 export type Column = (typeof COLUMNS)[number];
 
-// Each column covers a 20-number range within 00–99
-const COLUMN_RANGES: Record<Column, [number, number]> = {
-  O: [0, 19],
-  K: [20, 39],
-  T: [40, 59],
-  A: [60, 79],
-  '!': [80, 99],
+// Okta Number Challenge shows 1–99. Split evenly across 5 columns.
+export const COLUMN_RANGES: Record<Column, [number, number]> = {
+  O: [1,  20],
+  K: [21, 40],
+  T: [41, 60],
+  A: [61, 80],
+  '!': [81, 99],
 };
 
 function pickUnique(min: number, max: number, count: number): number[] {
@@ -24,28 +24,16 @@ export function generateCard(): (number | null)[][] {
   const columns: (number | null)[][] = COLUMNS.map((col, ci) => {
     const [min, max] = COLUMN_RANGES[col];
     if (ci === 2) {
-      // Center column: FREE in row 2
       const nums = pickUnique(min, max, 4);
       return [nums[0], nums[1], null, nums[2], nums[3]];
     }
     return pickUnique(min, max, 5) as (number | null)[];
   });
 
-  // Transpose columns → rows
   return Array.from({ length: 5 }, (_, row) => columns.map(col => col[row]));
 }
 
-// Split a 6-digit TOTP into three 2-digit numbers: "482951" → [48, 29, 51]
-export function parseTotpPairs(code: string): number[] {
-  const clean = code.replace(/\D/g, '');
-  if (clean.length !== 6) return [];
-  return [
-    parseInt(clean.slice(0, 2), 10),
-    parseInt(clean.slice(2, 4), 10),
-    parseInt(clean.slice(4, 6), 10),
-  ];
-}
-
+// Display a 1–99 number with consistent 2-char width in the grid.
 export function fmt(n: number): string {
   return n.toString().padStart(2, '0');
 }
@@ -77,4 +65,76 @@ export function checkWin(
     return { cells: [0, 1, 2, 3, 4].map(i => [i, 4 - i] as [number, number]) };
 
   return null;
+}
+
+// ── Near-win detection ────────────────────────────────────
+export type NearLine = {
+  cells: [number, number][];
+  neededCell: [number, number];
+  neededValue: number;
+};
+
+const ALL_LINES: [number, number][][] = [
+  ...[0, 1, 2, 3, 4].map(r => [0, 1, 2, 3, 4].map(c => [r, c] as [number, number])),
+  ...[0, 1, 2, 3, 4].map(c => [0, 1, 2, 3, 4].map(r => [r, c] as [number, number])),
+  [0, 1, 2, 3, 4].map(i => [i, i] as [number, number]),
+  [0, 1, 2, 3, 4].map(i => [i, 4 - i] as [number, number]),
+];
+
+export function checkNearWin(
+  card: (number | null)[][],
+  marked: ReadonlySet<number>,
+): NearLine[] {
+  const result: NearLine[] = [];
+  for (const line of ALL_LINES) {
+    const unhit = line.filter(([r, c]) => {
+      const v = card[r][c];
+      return v !== null && !marked.has(v);
+    });
+    if (unhit.length === 1) {
+      const [nr, nc] = unhit[0];
+      result.push({ cells: line, neededCell: [nr, nc], neededValue: card[nr][nc] as number });
+    }
+  }
+  return result;
+}
+
+// ── Card sharing ──────────────────────────────────────────
+export function isValidCard(card: unknown): card is (number | null)[][] {
+  if (!Array.isArray(card) || card.length !== 5) return false;
+  const seen = new Set<number>();
+  for (let r = 0; r < 5; r++) {
+    const row = card[r];
+    if (!Array.isArray(row) || row.length !== 5) return false;
+    for (let c = 0; c < 5; c++) {
+      const val = row[c];
+      if (r === 2 && c === 2) {
+        if (val !== null) return false;
+      } else {
+        if (typeof val !== 'number' || isNaN(val)) return false;
+        const [min, max] = COLUMN_RANGES[COLUMNS[c]];
+        if (val < min || val > max) return false;
+        if (seen.has(val)) return false;
+        seen.add(val);
+      }
+    }
+  }
+  return true;
+}
+
+export function encodeCard(card: (number | null)[][]): string {
+  return btoa(card.flat().map(v => v ?? 0).join(','));
+}
+
+export function decodeCard(encoded: string): (number | null)[][] | null {
+  try {
+    const flat = atob(encoded).split(',').map(Number);
+    if (flat.length !== 25 || flat.some(isNaN)) return null;
+    const card = Array.from({ length: 5 }, (_, r) =>
+      flat.slice(r * 5, r * 5 + 5).map(v => (v === 0 ? null : v)),
+    );
+    return isValidCard(card) ? card : null;
+  } catch {
+    return null;
+  }
 }

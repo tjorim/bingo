@@ -7,7 +7,7 @@ export interface Config {
 export interface SavedState {
   card: (number | null)[][];
   marked: number[];
-  codes: string[];
+  numbers: number[]; // one per Okta Number Challenge completed
   createdAt: string; // ISO string
 }
 
@@ -41,8 +41,16 @@ export function saveConfig(config: Config): void {
 
 export function loadState(): SavedState | null {
   const s = safeGet<SavedState>(STATE_KEY);
-  // Basic shape validation
-  if (!s || !Array.isArray(s.card) || !Array.isArray(s.marked) || !Array.isArray(s.codes) || !s.createdAt)
+  // Reject old format (had 'codes: string[]') or malformed data
+  if (
+    !s ||
+    !Array.isArray(s.card) ||
+    s.card.length !== 5 ||
+    s.card.some((row: unknown) => !Array.isArray(row) || (row as unknown[]).length !== 5) ||
+    !Array.isArray(s.marked) ||
+    !Array.isArray(s.numbers) ||
+    !s.createdAt
+  )
     return null;
   return s;
 }

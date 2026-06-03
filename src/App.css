@@ -54,13 +54,29 @@
   font-size: clamp(1.4rem, 5vw, 1.9rem);
   font-weight: 900;
   text-align: center;
-  padding: 0.35em 0;
+  padding: 0.35em 0 0.2em;
   border-radius: 8px;
   letter-spacing: -1px;
 }
 
 [data-bs-theme='dark'] .bingo-col-header {
   background-color: #1a3a6e;
+}
+
+/* Column heat bar */
+.col-heat {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 0 0 6px 6px;
+  margin: 4px 6px 0;
+  overflow: hidden;
+}
+
+.col-heat-fill {
+  height: 100%;
+  background: rgba(255, 193, 7, 0.85);
+  border-radius: 2px;
+  transition: width 0.4s ease;
 }
 
 /* Cells */
@@ -120,6 +136,63 @@
   100% { transform: scale(1); }
 }
 
+/* Near-win cell (the one number you need) */
+.bingo-cell--needed {
+  border: 2px dashed var(--okta-win) !important;
+  animation: needed-glow 1.4s ease-in-out infinite;
+}
+
+@keyframes needed-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+  50% { box-shadow: 0 0 0 5px rgba(255, 193, 7, 0.35); }
+}
+
+/* Near-win banner */
+.near-win-alert {
+  text-align: center;
+  padding: 0.4rem 1rem;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.12), rgba(255, 193, 7, 0.04));
+  border: 1px solid rgba(255, 193, 7, 0.45);
+  font-size: 0.92rem;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Toast */
+.toast-notification {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a1a1a;
+  color: #fff;
+  padding: 0.5rem 1.4rem;
+  border-radius: 100px;
+  font-size: 0.88rem;
+  white-space: nowrap;
+  z-index: 9999;
+  animation: toast-in 0.3s ease, toast-out 0.3s ease 2.2s forwards;
+}
+
+[data-bs-theme='dark'] .toast-notification {
+  background: #e9ecef;
+  color: #212529;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes toast-out {
+  to { opacity: 0; }
+}
+
 @keyframes pulse {
   from {
     transform: scale(1);
@@ -131,30 +204,26 @@
   }
 }
 
-/* ── TOTP input ───────────────────────────────────────── */
-.totp-digit {
-  width: clamp(42px, 12vw, 56px) !important;
-  height: clamp(52px, 14vw, 68px) !important;
-  font-size: clamp(1.4rem, 5vw, 1.9rem) !important;
-  border-radius: 10px !important;
+/* ── Number input (Okta Number Challenge) ─────────────── */
+.number-input {
+  width: clamp(90px, 28vw, 130px) !important;
+  height: clamp(72px, 20vw, 96px) !important;
+  font-size: clamp(2rem, 8vw, 3rem) !important;
+  border-radius: 14px !important;
   padding: 0 !important;
   font-variant-numeric: tabular-nums;
   transition: background-color 0.3s ease;
-}
-
-.totp-sep {
-  font-size: 1.5rem;
-  line-height: 1;
-  padding: 0 2px;
+  letter-spacing: 0.05em;
 }
 
 /* Green flash on submit */
-.totp-flash .totp-digit {
+.number-flash {
   background-color: #d1e7dd !important;
   border-color: var(--okta-free) !important;
+  color: var(--okta-free) !important;
 }
 
-[data-bs-theme='dark'] .totp-flash .totp-digit {
+[data-bs-theme='dark'] .number-flash {
   background-color: #0d3321 !important;
 }
 

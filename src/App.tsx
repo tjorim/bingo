@@ -1,7 +1,8 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import confetti from 'canvas-confetti';
-import { generateCard, checkWin } from './utils/bingo';
-import type { WinLine } from './utils/bingo';
+import { generateCard, checkWin, checkNearWin, encodeCard, decodeCard, fmt } from './utils/bingo';
+import type { WinLine, NearLine } from './utils/bingo';
+import { randomQuip } from './utils/quips';
 import {
   loadConfig,
   loadState,
@@ -40,6 +41,26 @@ function fireConfetti() {
 
 function loadInitial() {
   const config = loadConfig();
+
+  // Check for a shared card in the URL (?card=...)
+  const urlParams = new URLSearchParams(window.location.search);
+  const sharedEncoded = urlParams.get('card');
+  if (sharedEncoded) {
+    const sharedCard = decodeCard(sharedEncoded);
+    if (sharedCard) {
+      // Clean the URL so a refresh starts fresh from localStorage
+      history.replaceState({}, '', window.location.pathname);
+      return {
+        config,
+        card: sharedCard,
+        marked: new Set<number>(),
+        numbers: [] as number[],
+        createdAt: new Date().toISOString(),
+        win: null as WinLine | null,
+      };
+    }
+  }
+
   const saved = loadState();
   const valid = saved !== null && isStateValid(saved.createdAt, config.period);
   const card = valid ? saved!.card : generateCard();
@@ -61,15 +82,24 @@ export default function App() {
   const [numbers, setNumbers] = useState<number[]>(init.numbers);
   const [cardCreatedAt, setCardCreatedAt] = useState<string>(init.createdAt);
   const [win, setWin] = useState<WinLine | null>(init.win);
+  const [quip, setQuip] = useState('');
   const [stats, setStats] = useState<Stats>(() => loadStats());
   const [showSettings, setShowSettings] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => loadTheme());
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const nearWins = useMemo<NearLine[]>(
+    () => (win ? [] : checkNearWin(card, marked)),
+    [card, marked, win],
+  );
+
+  // ── Theme ───────────────────────────────────────────────
   useEffect(() => {
     const applyTheme = (dark: boolean) =>
       document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
 
-    saveTheme(themeMode); // persist all modes, including 'auto'
+    saveTheme(themeMode);
 
     if (themeMode === 'auto') {
       const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
@@ -82,9 +112,17 @@ export default function App() {
     applyTheme(themeMode === 'dark');
   }, [themeMode]);
 
+  // ── Persistence ─────────────────────────────────────────
   useEffect(() => {
     saveState({ card, marked: Array.from(marked), numbers, createdAt: cardCreatedAt });
   }, [card, marked, numbers, cardCreatedAt]);
+
+  // ── Helpers ─────────────────────────────────────────────
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2500);
+  }, []);
 
   const resetCard = useCallback(() => {
     setCard(generateCard());
@@ -93,6 +131,7 @@ export default function App() {
     setNumbers([]);
     setCardCreatedAt(new Date().toISOString());
     setWin(null);
+    setQuip('');
   }, []);
 
   const handleConfigChange = useCallback(
@@ -122,6 +161,7 @@ export default function App() {
       const winLine = checkWin(card, nextMarked);
       if (winLine) {
         setWin(winLine);
+        setQuip(randomQuip());
         fireConfetti();
         setStats(prev => {
           const next: Stats = {
@@ -145,11 +185,28 @@ export default function App() {
   );
 
   const handleDemo = useCallback(() => {
-    // Simulate a random Okta Number Challenge (1–99)
     handleSubmit(Math.floor(Math.random() * 99) + 1);
   }, [handleSubmit]);
 
+  const handleShareCard = useCallback(async () => {
+    const encoded = encodeCard(card);
+    const url = new URL(window.location.href);
+    url.searchParams.set('card', encoded);
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      showToast('📋 Link copied — share it with a colleague!');
+    } catch {
+      showToast('Copy failed — try again');
+    }
+  }, [card, showToast]);
+
   const markedCount = card.flat().filter(val => val === null || marked.has(val)).length;
+
+  // Deduplicated list of numbers needed across all near-win lines
+  const neededValues = useMemo(
+    () => [...new Set(nearWins.map(nw => nw.neededValue))],
+    [nearWins],
+  );
 
   return (
     <div className="min-vh-100 py-3 py-md-5">
@@ -187,13 +244,15 @@ export default function App() {
           <Settings config={config} cardCreatedAt={cardCreatedAt} onChange={handleConfigChange} />
         )}
 
+        {/* Win banner */}
         {win && (
           <div className="win-banner alert alert-warning d-flex align-items-center gap-3 mb-4">
             <span className="win-emoji">🎉</span>
             <div className="flex-grow-1">
               <div className="fw-black fs-3 lh-1">BINGO!</div>
-              <div className="text-muted small">
-                {numbers.length} challenge{numbers.length !== 1 ? 's' : ''} — not bad!
+              <div className="text-muted small">{quip}</div>
+              <div className="text-muted small mt-1">
+                {numbers.length} challenge{numbers.length !== 1 ? 's' : ''}
               </div>
             </div>
             <button className="btn btn-warning btn-sm fw-bold" onClick={resetCard}>
@@ -202,17 +261,29 @@ export default function App() {
           </div>
         )}
 
-        <BingoCard card={card} marked={marked} justMarked={justMarked} win={win} />
+        <BingoCard card={card} marked={marked} justMarked={justMarked} win={win} nearWins={nearWins} />
 
+        {/* Progress */}
         <div className="progress mt-3 mb-1" style={{ height: 6 }}>
           <div
             className="progress-bar bg-okta"
             style={{ width: `${(markedCount / 25) * 100}%`, transition: 'width 0.4s ease' }}
           />
         </div>
-        <p className="text-muted small text-center mb-4">{markedCount} / 25 cells marked</p>
+        <p className="text-muted small text-center mb-2">{markedCount} / 25 cells marked</p>
 
-        {/* Number input */}
+        {/* Near-win alert */}
+        {nearWins.length > 0 && (
+          <div className="near-win-alert mb-4">
+            <i className="bi bi-bullseye me-1" />
+            <strong>Almost!</strong>
+            {' '}Need:{' '}
+            <strong>{neededValues.map(fmt).join(', ')}</strong>
+          </div>
+        )}
+        {nearWins.length === 0 && <div className="mb-4" />}
+
+        {/* TOTP input */}
         <div className="mb-1">
           <label className="form-label text-muted small w-100 text-center mb-3">
             <i className="bi bi-phone me-1" />
@@ -221,6 +292,7 @@ export default function App() {
           <NumberInput onSubmit={handleSubmit} disabled={!!win} />
         </div>
 
+        {/* Actions */}
         <div className="d-flex gap-2 justify-content-center mt-4">
           <button className="btn btn-outline-primary" onClick={resetCard} title="Generate a fresh card">
             <i className="bi bi-arrow-clockwise me-1" />
@@ -232,8 +304,14 @@ export default function App() {
             disabled={!!win}
             title="Simulate a random Okta Number Challenge"
           >
-            <i className="bi bi-dice-5 me-1" />
-            Demo
+            <i className="bi bi-dice-5" />
+          </button>
+          <button
+            className="btn btn-outline-secondary"
+            onClick={() => void handleShareCard()}
+            title="Share this card with a colleague"
+          >
+            <i className="bi bi-share" />
           </button>
         </div>
 
@@ -244,6 +322,9 @@ export default function App() {
           Built with <span title="questionable life choices">☕</span> to survive the 2FA flood
         </footer>
       </div>
+
+      {/* Toast */}
+      {toast && <div className="toast-notification">{toast}</div>}
     </div>
   );
 }

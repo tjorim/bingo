@@ -7,11 +7,13 @@
     <meta name="description" content="Turn your Okta 2FA codes into a Bingo game!" />
     <title>Okta Bingo</title>
     <script>
-      // Apply saved theme before React loads to avoid flash
+      // Apply saved theme before React loads to avoid flash.
+      // 'auto' (and null/unknown) resolves to the system preference.
       (function () {
         const stored = localStorage.getItem('bingo-theme');
-        const preferred = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        document.documentElement.setAttribute('data-bs-theme', stored || preferred);
+        const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+        const dark = stored === 'dark' || (stored !== 'light' && prefersDark);
+        document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
       })();
     </script>
   </head>

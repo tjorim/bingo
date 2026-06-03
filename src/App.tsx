@@ -69,6 +69,8 @@ export default function App() {
     const applyTheme = (dark: boolean) =>
       document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
 
+    saveTheme(themeMode); // persist all modes, including 'auto'
+
     if (themeMode === 'auto') {
       const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
       applyTheme(mq?.matches ?? false);
@@ -78,7 +80,6 @@ export default function App() {
     }
 
     applyTheme(themeMode === 'dark');
-    saveTheme(themeMode);
   }, [themeMode]);
 
   useEffect(() => {

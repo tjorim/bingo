@@ -1,13 +1,13 @@
 export const COLUMNS = ['O', 'K', 'T', 'A', '!'] as const;
 export type Column = (typeof COLUMNS)[number];
 
-// Each column covers a 20-number range within 00–99
+// Okta Number Challenge shows 1–99. Split evenly across 5 columns.
 const COLUMN_RANGES: Record<Column, [number, number]> = {
-  O: [0, 19],
-  K: [20, 39],
-  T: [40, 59],
-  A: [60, 79],
-  '!': [80, 99],
+  O: [1,  20],
+  K: [21, 40],
+  T: [41, 60],
+  A: [61, 80],
+  '!': [81, 99],
 };
 
 function pickUnique(min: number, max: number, count: number): number[] {
@@ -24,28 +24,16 @@ export function generateCard(): (number | null)[][] {
   const columns: (number | null)[][] = COLUMNS.map((col, ci) => {
     const [min, max] = COLUMN_RANGES[col];
     if (ci === 2) {
-      // Center column: FREE in row 2
       const nums = pickUnique(min, max, 4);
       return [nums[0], nums[1], null, nums[2], nums[3]];
     }
     return pickUnique(min, max, 5) as (number | null)[];
   });
 
-  // Transpose columns → rows
   return Array.from({ length: 5 }, (_, row) => columns.map(col => col[row]));
 }
 
-// Split a 6-digit TOTP into three 2-digit numbers: "482951" → [48, 29, 51]
-export function parseTotpPairs(code: string): number[] {
-  const clean = code.replace(/\D/g, '');
-  if (clean.length !== 6) return [];
-  return [
-    parseInt(clean.slice(0, 2), 10),
-    parseInt(clean.slice(2, 4), 10),
-    parseInt(clean.slice(4, 6), 10),
-  ];
-}
-
+// Display a 1–99 number with consistent 2-char width in the grid.
 export function fmt(n: number): string {
   return n.toString().padStart(2, '0');
 }

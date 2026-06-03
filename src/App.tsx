@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { generateCard, parseTotpPairs, checkWin } from './utils/bingo';
+import { generateCard, checkWin } from './utils/bingo';
 import type { WinLine } from './utils/bingo';
 import {
   loadConfig,
@@ -17,7 +17,7 @@ import {
   type ThemeMode,
 } from './utils/persistence';
 import BingoCard from './components/BingoCard';
-import TotpInput from './components/TotpInput';
+import NumberInput from './components/NumberInput';
 import CalledCodes from './components/CalledCodes';
 import Settings from './components/Settings';
 import StatsPanel from './components/StatsPanel';
@@ -44,10 +44,10 @@ function loadInitial() {
   const valid = saved !== null && isStateValid(saved.createdAt, config.period);
   const card = valid ? saved!.card : generateCard();
   const marked = new Set<number>(valid ? saved!.marked : []);
-  const codes = valid ? saved!.codes : [];
+  const numbers = valid ? saved!.numbers : [];
   const createdAt = valid ? saved!.createdAt : new Date().toISOString();
   const win = checkWin(card, marked);
-  return { config, card, marked, codes, createdAt, win };
+  return { config, card, marked, numbers, createdAt, win };
 }
 
 export default function App() {
@@ -58,14 +58,13 @@ export default function App() {
   const [marked, setMarked] = useState<Set<number>>(init.marked);
   const [justMarked, setJustMarked] = useState<Set<number>>(() => new Set());
   const justMarkedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [codes, setCodes] = useState<string[]>(init.codes);
+  const [numbers, setNumbers] = useState<number[]>(init.numbers);
   const [cardCreatedAt, setCardCreatedAt] = useState<string>(init.createdAt);
   const [win, setWin] = useState<WinLine | null>(init.win);
   const [stats, setStats] = useState<Stats>(() => loadStats());
   const [showSettings, setShowSettings] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => loadTheme());
 
-  // Apply theme + listen for system changes when in auto mode
   useEffect(() => {
     const applyTheme = (dark: boolean) =>
       document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
@@ -82,16 +81,15 @@ export default function App() {
     saveTheme(themeMode);
   }, [themeMode]);
 
-  // Persist game state on every change
   useEffect(() => {
-    saveState({ card, marked: Array.from(marked), codes, createdAt: cardCreatedAt });
-  }, [card, marked, codes, cardCreatedAt]);
+    saveState({ card, marked: Array.from(marked), numbers, createdAt: cardCreatedAt });
+  }, [card, marked, numbers, cardCreatedAt]);
 
   const resetCard = useCallback(() => {
     setCard(generateCard());
     setMarked(new Set());
     setJustMarked(new Set());
-    setCodes([]);
+    setNumbers([]);
     setCardCreatedAt(new Date().toISOString());
     setWin(null);
   }, []);
@@ -106,21 +104,19 @@ export default function App() {
   );
 
   const handleSubmit = useCallback(
-    (code: string) => {
+    (n: number) => {
       if (win) return;
-      const pairs = parseTotpPairs(code);
-      if (pairs.length === 0) return;
 
       const nextMarked = new Set(marked);
-      pairs.forEach(p => nextMarked.add(p));
+      nextMarked.add(n);
       setMarked(nextMarked);
 
-      setJustMarked(new Set(pairs));
+      setJustMarked(new Set([n]));
       if (justMarkedTimer.current) clearTimeout(justMarkedTimer.current);
       justMarkedTimer.current = setTimeout(() => setJustMarked(new Set()), 700);
 
-      const newCodesCount = codes.length + 1;
-      setCodes(prev => [code, ...prev]);
+      const newCount = numbers.length + 1;
+      setNumbers(prev => [n, ...prev]);
 
       const winLine = checkWin(card, nextMarked);
       if (winLine) {
@@ -130,8 +126,8 @@ export default function App() {
           const next: Stats = {
             totalCodes: prev.totalCodes + 1,
             totalBingos: prev.totalBingos + 1,
-            bestGame: prev.bestGame === null || newCodesCount < prev.bestGame ? newCodesCount : prev.bestGame,
-            totalCodesInBingos: prev.totalCodesInBingos + newCodesCount,
+            bestGame: prev.bestGame === null || newCount < prev.bestGame ? newCount : prev.bestGame,
+            totalCodesInBingos: prev.totalCodesInBingos + newCount,
           };
           saveStats(next);
           return next;
@@ -144,12 +140,12 @@ export default function App() {
         });
       }
     },
-    [card, codes.length, marked, win],
+    [card, marked, numbers.length, win],
   );
 
   const handleDemo = useCallback(() => {
-    const code = Math.floor(Math.random() * 1_000_000).toString().padStart(6, '0');
-    handleSubmit(code);
+    // Simulate a random Okta Number Challenge (1–99)
+    handleSubmit(Math.floor(Math.random() * 99) + 1);
   }, [handleSubmit]);
 
   const markedCount = card.flat().filter(val => val === null || marked.has(val)).length;
@@ -164,7 +160,7 @@ export default function App() {
             <h1 className="h2 fw-black mb-0 app-title">
               <span className="okta-brand">Okta</span> Bingo
             </h1>
-            <p className="text-muted small mb-0">Enter your TOTP codes — get five in a row!</p>
+            <p className="text-muted small mb-0">Get a push? Mark the number. Get five in a row!</p>
           </div>
           <div className="d-flex gap-1 mt-1">
             <button
@@ -196,7 +192,7 @@ export default function App() {
             <div className="flex-grow-1">
               <div className="fw-black fs-3 lh-1">BINGO!</div>
               <div className="text-muted small">
-                {codes.length} code{codes.length !== 1 ? 's' : ''} — not bad!
+                {numbers.length} challenge{numbers.length !== 1 ? 's' : ''} — not bad!
               </div>
             </div>
             <button className="btn btn-warning btn-sm fw-bold" onClick={resetCard}>
@@ -215,19 +211,16 @@ export default function App() {
         </div>
         <p className="text-muted small text-center mb-4">{markedCount} / 25 cells marked</p>
 
+        {/* Number input */}
         <div className="mb-1">
-          <label className="form-label text-muted small w-100 text-center mb-2">
-            <i className="bi bi-shield-lock me-1" />
-            Enter your Okta Verify code:
+          <label className="form-label text-muted small w-100 text-center mb-3">
+            <i className="bi bi-phone me-1" />
+            What number does your laptop show?
           </label>
-          <TotpInput onSubmit={handleSubmit} disabled={!!win} />
+          <NumberInput onSubmit={handleSubmit} disabled={!!win} />
         </div>
-        <p className="text-muted small text-center mt-2 mb-4">
-          <code>482&thinsp;951</code> marks <code>48</code>, <code>29</code>, <code>51</code>
-          &ensp;·&ensp;each code marks 3 cells
-        </p>
 
-        <div className="d-flex gap-2 justify-content-center">
+        <div className="d-flex gap-2 justify-content-center mt-4">
           <button className="btn btn-outline-primary" onClick={resetCard} title="Generate a fresh card">
             <i className="bi bi-arrow-clockwise me-1" />
             New card
@@ -236,15 +229,14 @@ export default function App() {
             className="btn btn-outline-secondary"
             onClick={handleDemo}
             disabled={!!win}
-            title="Simulate a random TOTP code"
+            title="Simulate a random Okta Number Challenge"
           >
             <i className="bi bi-dice-5 me-1" />
             Demo
           </button>
         </div>
 
-        <CalledCodes codes={codes} />
-
+        <CalledCodes numbers={numbers} />
         <StatsPanel stats={stats} />
 
         <footer className="text-center text-muted small mt-5">

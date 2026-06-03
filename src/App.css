@@ -131,30 +131,26 @@
   }
 }
 
-/* ── TOTP input ───────────────────────────────────────── */
-.totp-digit {
-  width: clamp(42px, 12vw, 56px) !important;
-  height: clamp(52px, 14vw, 68px) !important;
-  font-size: clamp(1.4rem, 5vw, 1.9rem) !important;
-  border-radius: 10px !important;
+/* ── Number input (Okta Number Challenge) ─────────────── */
+.number-input {
+  width: clamp(90px, 28vw, 130px) !important;
+  height: clamp(72px, 20vw, 96px) !important;
+  font-size: clamp(2rem, 8vw, 3rem) !important;
+  border-radius: 14px !important;
   padding: 0 !important;
   font-variant-numeric: tabular-nums;
   transition: background-color 0.3s ease;
-}
-
-.totp-sep {
-  font-size: 1.5rem;
-  line-height: 1;
-  padding: 0 2px;
+  letter-spacing: 0.05em;
 }
 
 /* Green flash on submit */
-.totp-flash .totp-digit {
+.number-flash {
   background-color: #d1e7dd !important;
   border-color: var(--okta-free) !important;
+  color: var(--okta-free) !important;
 }
 
-[data-bs-theme='dark'] .totp-flash .totp-digit {
+[data-bs-theme='dark'] .number-flash {
   background-color: #0d3321 !important;
 }
 
